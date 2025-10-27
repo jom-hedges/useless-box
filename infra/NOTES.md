@@ -1,6 +1,6 @@
 ## 2025-10-25
 
-Current problem: provisioning a Linux instance on AWS that I can SSH into, and run Bun.
+Current problem: provisioning a Linux instance on AWS that I can SSH into, and run the Bun runtime.
 
 `ping: ami-0244ef75e95122fd9@ec2-18-180-150-130.ap-northeast-1.compute.amazonaws.com: Name or service not known`
 
@@ -22,4 +22,5 @@ Evening time, created an `aws_subnet` resourced called `rabbit-vpc-public`, whic
 
 This very old [stackoverflow post](https://stackoverflow.com/questions/2813843/possible-reasons-for-timeout-when-trying-to-access-ec2-instance#15004658) pointed me in the correct direction to ensure that I had a vpc, internet gateway, routing table, and associations created.
 
-
+## 2025-10-27
+On my commute home, I started to read the paper "A Rational Design Process: How and Why to Fake It" by David L. Parnas and Paul C. Clements. So far, the idea about separation of concerns seems to resonate that designing "software is one in which we attempt to separate concerns so that we are working with a manageable amount of information." It resonates with other repostories that I have read while attempting to fix the `kex_exchange_identification: read: Connection reset by peer` issue; Modules seems to be separated by `version.tf`, `variables.tf`, `main.tf`, etc.

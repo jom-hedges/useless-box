@@ -44,11 +44,34 @@ resource "aws_route_table" "rabbit-route-table" {
         cidr_block = "0.0.0.0/0"
         gateway_id = aws_internet_gateway.rabbit-gateway.id
     }
+
+    tags = {
+        "rabbit-public-route-table"
+    }
 }
 
 resource "aws_route_table_association" "rabbit-association" {
     subnet_id       = aws_subnet.rabbit-vpc-public.id
     route_table_id  = aws_route_table.rabbit-route-table.id
+}
+
+resource "aws_security_group" "rabbit-security-group" {
+    name = "rabbit-ssh-security"
+    vpc_id = aws_vpc.rabbit-vpc-public.id
+
+    ingress {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    egress {
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
 }
 
 data "aws_ami" "ubuntu" { 
@@ -67,7 +90,8 @@ resource "aws_instance" "rabbit-env-server" {
     instance_type               = "t3.micro"
     associate_public_ip_address = true
     key_name                    = "greg-rabbit-key"
-    vpc_security_group_ids      = ["sg-001f767ddb67db14d"]
+    vpc_security_group_ids      = [aws_security_group.rabbit-security-group.id]
+    subnet_id                   = aws_subnet.rabbit-vpc-public.id
 
     tags = {
         Name = "rabbit-env-server"
