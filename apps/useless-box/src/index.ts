@@ -1,4 +1,7 @@
 import { Elysia } from "elysia";
+import { ListTablesCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
+
+const client = new DynamoDBClient({});
 
 const app =new Elysia()
   .state("alive", false)
@@ -25,6 +28,14 @@ const watcher = setInterval(() = > {
     console.log("SWITCH is already OFF");
   }
 }, INTERVAL_MS);
+
+export const main = async() => {
+  const command = new ListTablesCommand({});
+
+  const response = await.client.send(command);
+  console.log(response.TableNames.join("\n"));
+  return response
+}
 
 // cleans up on process exit 
 process.on("SIGINT", () => {

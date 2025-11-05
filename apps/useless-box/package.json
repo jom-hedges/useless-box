@@ -6,6 +6,9 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.922.0",
+    "@aws-sdk/lib-dynamodb": "^3.922.0",
+    "@aws-sdk/util-dynamodb": "^3.922.0",
     "elysia": "latest",
     "valibot": "^1.1.0"
   },
