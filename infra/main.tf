@@ -97,3 +97,14 @@ resource "aws_instance" "rabbit-env-server" {
         Name = "rabbit-env-server"
     }
 }
+
+resource "aws_dynamodb_table" "useless-box-state" {
+  name         = "useless-box-state"
+  billing_mode = "ON_DEMAND"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
