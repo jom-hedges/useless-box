@@ -46,7 +46,7 @@ resource "aws_route_table" "rabbit-route-table" {
     }
 
     tags = {
-        "rabbit-public-route-table"
+        Name = "rabbit-public-route-table"
     }
 }
 
