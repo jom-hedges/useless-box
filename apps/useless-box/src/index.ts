@@ -16,6 +16,20 @@ const PK = "useless-box-001";
 const app = new Elysia()
     .state('ddb', ddb)
     
+    .onError(({ error, code, set, status }) => 
+      console.error('error occurred', error)
+
+      // pretty good JSON
+      if (code === 'NOT FOUND')
+        return status(404, { message: 'Not found' })
+
+      // fallback for any other error 
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' }}
+      )
+    })
+    
     // ensure a record exists (run once at startup)
     .onStart(async ({ ddb }) => {
         const { Item } await state.ddb.send(
