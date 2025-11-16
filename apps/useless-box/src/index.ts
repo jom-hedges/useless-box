@@ -11,11 +11,8 @@ const ddb = new DynamoDBClient({ region: "ap-northeast-1", });
 const ddbDocClient = DynamoDBDocumentClient.from(ddb);
 
 const TABLE_NAME = "useless-box";
-<<<<<<< HEAD
-const PK = "pk";
-=======
 const PK_VALUE = "useless-box-001";
->>>>>>> 29f817f (ui needs updating)
+
 
 const app = new Elysia()
   .state('ddb', ddb)
@@ -40,13 +37,9 @@ const app = new Elysia()
 
     const { Item } = await ddb.send(
       new GetCommand({ 
-<<<<<<< HEAD
-        TableName: "useless-box", 
-        Item: { pk: PK, on: false }
-=======
         TableName: TABLE_NAME, 
         Key: { pk: PK_VALUE }
->>>>>>> 29f817f (ui needs updating)
+
       })
     );
     
