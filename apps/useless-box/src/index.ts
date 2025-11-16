@@ -11,7 +11,11 @@ const ddb = new DynamoDBClient({ region: "ap-northeast-1", });
 const ddbDocClient = DynamoDBDocumentClient.from(ddb);
 
 const TABLE_NAME = "useless-box";
+<<<<<<< HEAD
 const PK = "pk";
+=======
+const PK_VALUE = "useless-box-001";
+>>>>>>> 29f817f (ui needs updating)
 
 const app = new Elysia()
   .state('ddb', ddb)
@@ -36,8 +40,13 @@ const app = new Elysia()
 
     const { Item } = await ddb.send(
       new GetCommand({ 
+<<<<<<< HEAD
         TableName: "useless-box", 
         Item: { pk: PK, on: false }
+=======
+        TableName: TABLE_NAME, 
+        Key: { pk: PK_VALUE }
+>>>>>>> 29f817f (ui needs updating)
       })
     );
     
@@ -45,32 +54,36 @@ const app = new Elysia()
       await ddb.send(
         new PutCommand({
           TableName: TABLE_NAME,
-          Item: { pk: PK, on: false }
+          Item: { pk: PK_VALUE, on: false }
         })
       );
     }
 
-    console.log("DynamoDB record ensured:", PK);
+    console.log("DynamoDB record ensured:", PK_VALUE);
   })
     
   // get the current state
   .get("/state", async ({ store }) => {
+    const ddb = store.ddb
+
     const { Item } = await ddb.send(
       new GetCommand({
         TableName: TABLE_NAME,
-        Key: { pk: PK }
+        Key: { pk: PK_VALUE }
       })
     );
 
-    return Item ?? { pk: PK, on: false };
+    return Item ?? { pk: PK_VALUE, on: false };
   })
 
   // toggle the state
   .post("/toggle", async ({ store }) => {
+    const ddb = store.ddb
+
     const { Item } = await ddb.send(
       new GetCommand({
         TableName: TABLE_NAME,
-        Key: { pk: PK },
+        Key: { pk: PK_VALUE },
       })
     );
 
@@ -79,14 +92,15 @@ const app = new Elysia()
     await ddb.send(
       new PutCommand({
         TableName: TABLE_NAME,
-        Item: { pk: PK, on: newState }
+        Item: { 
+          pk: PK_VALUE,
+          on: newState
+        }
       })
     );
 
-    return { pk: PK, on: newState };
+    return { pk: PK_VALUE, on: newState };
   });
 
 app.listen(3000, () => console.log("Useless Box app is running on port 3000"));
-        
-    
-  
+           
