@@ -3,6 +3,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
     GetCommand,
     PutCommand,
+    UpdateCommand,
     DynamoDBDocumentClient, 
 } from "@aws-sdk/lib-dynamodb";
 
@@ -52,9 +53,38 @@ const app = new Elysia()
       );
     }
 
-    console.log("DynamoDB record ensured:", PK_VALUE);
+    console.log("Seeded DynamoDB with default state: ", PK_VALUE);
+
+    const id = setInterval(async ({ store }) => {
+      const ddb = store.ddb  
+
+      try {
+        const { Item } = await ddb.send(
+          new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { pk: PK_VALUE}
+          })
+        )
+        if (!Item?.on) return;
+
+        console.log("Auto-off triggered: flipping SWITCH to OFF.")
+
+        // flip the switch to false
+        await ddb.send(
+          new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { pk: PK_VALUE },
+            UpdateExpression: "set #o = :off",
+            ExpressionAttributeNames: { "#o": "on" },
+            ExpressionAttributeValues: { ":off": false}
+          })
+        );
+      } catch (err) {
+          console.error("Auto-off loop error:", err);
+      }
+    }, 1000);
   })
-    
+
   // get the current state
   .get("/state", async ({ store }) => {
     const ddb = store.ddb
