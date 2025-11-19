@@ -9,34 +9,20 @@ import {
 
 // one client for the whole process
 const ddb = new DynamoDBClient({ region: "ap-northeast-1", });
-const ddbDocClient = DynamoDBDocumentClient.from(ddb);
+const ddbDoc = DynamoDBDocumentClient.from(ddb);
 
 const TABLE_NAME = "useless-box";
 const PK_VALUE = "useless-box-001";
 
 
 const app = new Elysia()
-  .state('ddb', ddb)
-    
-  .onError(({ error, code, status }) => {
-    console.error("error occurred", error);
-
-    // pretty good JSON
-    if (code === "NOT FOUND")
-      return status(404, { message: 'Not found' });
-
-    // fallback for any other error 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" }}
-    );
-  })
+  .state('intervalId', null)
     
   // ensure a record exists (run once at startup)
   .onStart(async ({ store }) => {
-    const ddb = store.ddb;
-
-    const { Item } = await ddb.send(
+    console.log('Startup: ensuring DynamoDB records exists.');
+  
+    const record = await ddbDoc.send(
       new GetCommand({ 
         TableName: TABLE_NAME, 
         Key: { pk: PK_VALUE }
@@ -44,33 +30,35 @@ const app = new Elysia()
       })
     );
     
-    if (!Item) {
-      await ddb.send(
+    if (!record.Item) {
+      console.log('Seeding DynamoDB with initial state.')
+      await ddbDoc.send(
         new PutCommand({
           TableName: TABLE_NAME,
           Item: { pk: PK_VALUE, on: false }
         })
       );
+    } else {
+      console.log('Record already exists: ', record.Item)
     }
 
-    console.log("Seeded DynamoDB with default state: ", PK_VALUE);
-
-    const id = setInterval(async ({ store }) => {
-      const ddb = store.ddb  
-
+    const intervalRest = setInterval(async () => {
       try {
-        const { Item } = await ddb.send(
+        const result = await ddbDoc.send(
           new GetCommand({
             TableName: TABLE_NAME,
             Key: { pk: PK_VALUE}
           })
-        )
-        if (!Item?.on) return;
+        );
+
+        const item = result?.item
+
+        if (!item?.on) return;
 
         console.log("Auto-off triggered: flipping SWITCH to OFF.")
 
         // flip the switch to false
-        await ddb.send(
+        await ddbDoc.send(
           new UpdateCommand({
             TableName: TABLE_NAME,
             Key: { pk: PK_VALUE },
@@ -83,26 +71,31 @@ const app = new Elysia()
           console.error("Auto-off loop error:", err);
       }
     }, 1000);
+    store.intervalId = intervalRest;
+  })
+  
+  .onStop(({ store }) => {
+    if (store.intervalId) {
+      clearInterval(store.intervalId);
+      console.log("Cleanup: cleared background interval");
+    }  
   })
 
-  // get the current state
-  .get("/state", async ({ store }) => {
-    const ddb = store.ddb
 
-    const { Item } = await ddb.send(
+  // get the current state
+  .get("/state", async () => {
+    const { Item } = await ddbDoc.send(
       new GetCommand({
         TableName: TABLE_NAME,
         Key: { pk: PK_VALUE }
       })
     );
 
-    return Item ?? { pk: PK_VALUE, on: false };
+    return Item ?? { error: 'not found' };
   })
 
   // toggle the state
-  .post("/toggle", async ({ store }) => {
-    const ddb = store.ddb
-
+  .post("/toggle", async () => {
     const { Item } = await ddb.send(
       new GetCommand({
         TableName: TABLE_NAME,
@@ -112,7 +105,7 @@ const app = new Elysia()
 
     const newState = !Item?.on;
 
-    await ddb.send(
+    await ddbDoc.send(
       new PutCommand({
         TableName: TABLE_NAME,
         Item: { 
@@ -125,5 +118,6 @@ const app = new Elysia()
     return { pk: PK_VALUE, on: newState };
   });
 
+// start the server
 app.listen(3000, () => console.log("Useless Box app is running on port 3000"));
            

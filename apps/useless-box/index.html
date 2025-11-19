@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title></title>
+    <title>Useless-Box Toggle</title>
     <meta 
       name="description"
       content="A useless-box"
@@ -21,9 +21,32 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
   </head>
   <body>
-    <noscript>Enable Javascript to run this app.</noscript>
-    <div id="root"></div>
-    <script type="module" src="/index.ts"></script>
+    <h1>Useless-Box</h1>
+    <button id='toggleBtn' class='off'>OFF</button> 
+    <script>
+      const API = 'https://localhost:3000'  
+  
+      const statusEl =  document.getElementById('status')
+      const btn = document.getElementById('toggleBtn')
+
+      // ---- fetch current switch (initial load) ----------
+      async function load() {
+        const { on } =  await (await fetch('/api/switch')).json()
+        statusEl.textContext = `Flag is ${on ? 'ON' : 'OFF'}`
+      }
+      load()
+
+      // ---- button click ---------------------------------
+      btn.addEventListener('click', async () => {
+        const { on } =  await(await fetch('/api/switch/toggle', {
+          method: 'POST'
+        })).json()
+        statusEl.textContext = `Switch is ${on ? 'ON' : 'OFF'}`
+      })
+
+      
+      
+    </script>
   </body>
 </html>
 
