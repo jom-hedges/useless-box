@@ -1,123 +1,134 @@
-import { Elysia } from "elysia";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { Elysia } from 'elysia';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+  object,
+  string,
+  boolean,
+  optional,
+  parse
+} from 'valibot';
+
 import {
     GetCommand,
     PutCommand,
     UpdateCommand,
     DynamoDBDocumentClient, 
-} from "@aws-sdk/lib-dynamodb";
+} from '@aws-sdk/lib-dynamodb';
 
-// one client for the whole process
-const ddb = new DynamoDBClient({ region: "ap-northeast-1", });
-const ddbDoc = DynamoDBDocumentClient.from(ddb);
+// config
+const TABLE_NAME = 'useless-box';
+const PK_VALUE = 'useless-box-001';
+const REGION = 'ap-northeast-1';
 
-const TABLE_NAME = "useless-box";
-const PK_VALUE = "useless-box-001";
+// schema
+const StateSchema = object({
+  pk: string(),
+  on:optional(boolean()),
+});
 
+const validateState = (item: any) =>
+  parse(StateSchema, item);
 
-const app = new Elysia()
-  .state('intervalId', null)
-    
-  // ensure a record exists (run once at startup)
-  .onStart(async ({ store }) => {
-    console.log('Startup: ensuring DynamoDB records exists.');
-  
-    const record = await ddbDoc.send(
-      new GetCommand({ 
-        TableName: TABLE_NAME, 
-        Key: { pk: PK_VALUE }
+// constructors  
+const makeClient = () =>
+  DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 
-      })
-    );
-    
-    if (!record.Item) {
-      console.log('Seeding DynamoDB with initial state.')
-      await ddbDoc.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: { pk: PK_VALUE, on: false }
-        })
-      );
-    } else {
-      console.log('Record already exists: ', record.Item)
-    }
+const makeGet = (table: string, key: Record<string, any>) =>
+  new GetCommand({ TableName: table, Key: key });
 
-    const intervalRest = setInterval(async () => {
-      try {
-        const result = await ddbDoc.send(
-          new GetCommand({
-            TableName: TABLE_NAME,
-            Key: { pk: PK_VALUE}
-          })
-        );
+const makePut = (table: string, item: Record<string, any>) =>
+  new PutCommand({ TableName: table, Item: item });
 
-        const item = result?.item
+// dynamoDB operations
+const fetchState = (ddb) => async (): Promise<any> =>
+  (await ddb.send(makeGet(TABLE_NAME, { pk: PK_VALUE }))).Item;
 
-        if (!item?.on) return;
+const writeState = (ddb) => async (state) =>
+  await ddb.send(makePut(TABLE_NAME, state));
 
-        console.log("Auto-off triggered: flipping SWITCH to OFF.")
+// ensure the initial state exists
+const ensureInitialState = (fetch, write) => async () => {
+  const existing = await fetch();
 
-        // flip the switch to false
-        await ddbDoc.send(
-          new UpdateCommand({
-            TableName: TABLE_NAME,
-            Key: { pk: PK_VALUE },
-            UpdateExpression: "set #o = :off",
-            ExpressionAttributeNames: { "#o": "on" },
-            ExpressionAttributeValues: { ":off": false}
-          })
-        );
-      } catch (err) {
-          console.error("Auto-off loop error:", err);
+  if (!existing) {
+    await write({ pk: PK_VALUE, on: false });
+    return { created: true }; 
+  }
+  return { created: false };
+}
+
+// state transformer
+const deriveNewState = (state) => ({
+  pk: PK_VALUE,
+  on: !Boolean(state?.on)
+});
+
+// polling
+const makePoller = (fetch, onChange) => {
+  let last = null;
+
+  const loop = async () => {
+    try {
+      const item = await fetch();
+      if (!item) return;
+
+      const validated = validateState(item);
+      if (JSON.stringify(validated) !== JSON.stringify(last)) {
+        last = validated;
+        onChange(validated);
       }
-    }, 1000);
-    store.intervalId = intervalRest;
-  })
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  };
+
+  return (intervalMs) => setInterval(loop, intervalMs)
+}
+
+// Elysia boundary (i/o only)
+const app = new Elysia()
+  .state('ddb', makeClient())
   
-  .onStop(({ store }) => {
-    if (store.intervalId) {
-      clearInterval(store.intervalId);
-      console.log("Cleanup: cleared background interval");
-    }  
+  .onStart(async ({ store }) => {
+    const ddb = store.ddb;
+
+    const fetch = fetchState(ddb);
+    const write = writeState(ddb);
+
+    const result = await ensureInitialState(fetch, write)();
+    console.log('Initial state:', result);
+
+    // start poller 
+    const poll = makePoller(fetch, (newState) => 
+     console.log('Switch flipped to ', newState)
+    );
+    poll(1_000);
+
+    console.log('Polling started every 1s')
   })
 
-
-  // get the current state
-  .get("/state", async () => {
-    const { Item } = await ddbDoc.send(
-      new GetCommand({
-        TableName: TABLE_NAME,
-        Key: { pk: PK_VALUE }
-      })
-    );
-
-    return Item ?? { error: 'not found' };
+  .get('/state', async ({ store }) => {
+    const state = await fetchState(store.ddb)();
+    return validateState(state ?? { pk: PK_VALUE, on: false });
   })
 
-  // toggle the state
-  .post("/toggle", async () => {
-    const { Item } = await ddb.send(
-      new GetCommand({
-        TableName: TABLE_NAME,
-        Key: { pk: PK_VALUE },
-      })
-    );
+  .post('/toggle', async ({ store }) => {
+    const ddb = store.ddb;
+    const fetch = fetchState(ddb);
+    const write = writeState(ddb);
 
-    const newState = !Item?.on;
+    const current = await fetch();
+    const validated = validateState(current ?? { pk: PK_VALUE, on: false });
 
-    await ddbDoc.send(
-      new PutCommand({
-        TableName: TABLE_NAME,
-        Item: { 
-          pk: PK_VALUE,
-          on: newState
-        }
-      })
-    );
+    const newState = deriveNewState(validated);
+    await write(newState);
 
-    return { pk: PK_VALUE, on: newState };
+    return newState;
   });
+  
 
 // start the server
-app.listen(3000, () => console.log("Useless Box app is running on port 3000"));
+app.listen(3000, () => 
+  console.log("Useless Box app is running on port 3000")
+);
            

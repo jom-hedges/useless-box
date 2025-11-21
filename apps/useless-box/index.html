@@ -29,23 +29,37 @@
       const statusEl =  document.getElementById('status')
       const btn = document.getElementById('toggleBtn')
 
-      // ---- fetch current switch (initial load) ----------
-      async function load() {
-        const { on } =  await (await fetch('/api/switch')).json()
-        statusEl.textContext = `Flag is ${on ? 'ON' : 'OFF'}`
-      }
-      load()
+      const fetchState = async () => {
+        const res = await fetch (`${API}/state`);
+        return await res.json(); 
+      };
 
-      // ---- button click ---------------------------------
-      btn.addEventListener('click', async () => {
-        const { on } =  await(await fetch('/api/switch/toggle', {
-          method: 'POST'
-        })).json()
-        statusEl.textContext = `Switch is ${on ? 'ON' : 'OFF'}`
-      })
+      const toggle = async () => {
+        const res = await fetch(`${API}/toggle`, { method: 'POST' });
+        return await res.json();
+      };
 
-      
-      
+      const render = (state) => {
+        document.getElementById('state').innerText =
+          state.on? 'ON' : 'OFF';
+      };
+
+      const startPolling = () => {
+        setInterval(async () => {
+          const state = await fetchState();
+          render(state);
+        }, 1_000);
+      };
+
+      document.getElementById('toggle').onclick = async () => {
+        const state = await toggle();
+        render(state);
+      };
+
+      (async () => {
+        render(await fetchState());
+        startPolling();
+      })();
     </script>
   </body>
 </html>
