@@ -99,12 +99,17 @@ const app = new Elysia()
     console.log('Initial state:', result);
 
     // start poller 
-    const poll = makePoller(fetch, (newState) => 
-     console.log('Switch flipped to ', newState)
-    );
-    poll(1_000);
+    const poll = makePoller(fetch, async (newState) => {
+      console.log('Switch flipped to ', newState)
 
-    console.log('Polling started every 1s')
+      if (newState.on === true) {
+        console.log('Detected ON -> flipping OFF');
+        await write({ pk: PK_VALUE, on: false });
+      }
+    });
+
+    poll(10_000);
+    console.log('Polling started every 60s')
   })
 
   .get('/state', async ({ store }) => {
@@ -121,7 +126,7 @@ const app = new Elysia()
     const validated = validateState(current ?? { pk: PK_VALUE, on: false });
 
     const newState = deriveNewState(validated);
-    await write(newState);
+    await writeState(ddb)({ pk: PK_VALUE, on: newState.on });
 
     return newState;
   });
