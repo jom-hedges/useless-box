@@ -85,6 +85,39 @@ const makePoller = (fetch, onChange) => {
   return (intervalMs) => setInterval(loop, intervalMs)
 }
 
+const makeStateStream = (fetch) => {
+  let last = null;
+
+  return new ReadableStream({
+    async start(controller) {
+      // poll every second for changes
+      const interval = setInterval(async () => {
+        try {
+          const item = await fetch();
+          if (!item) return;
+
+          const validated = validateState(item);
+
+          if (JSON.stringify(validated) !== JSON.stringify(last)) {
+            last = validated;
+            controller.enqueue(JSON.stringify(validated) + "\n");
+          }
+        } catch (err) {
+          controller.error(err);
+        }
+      }, 1000);
+
+      // close stream cleanup
+      this._interval = interval;
+    },
+
+    cancel() {
+      clearInterval(this._interval);
+    }
+  });
+};
+
+
 // Elysia boundary (i/o only)
 const app = new Elysia()
   .state('ddb', makeClient())
