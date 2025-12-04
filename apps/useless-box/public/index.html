@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ isOn: false, logs: [] }">
+<head>
+  <meta charset="UTF-8">
+  <title>Useless Box</title>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.10" defer></script> 
+
+  <!-- Alpine.js -->
+  <script src="https://unpkg.com/aplinejs" defer></script>
+
+  <!-- HTMX SSE Extension -->
+  <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+
+  <style>
+    body { font-family: sans-serif; padding: 18px;}
+    button { padding: 10px; font-size: 18px;}
+  </style>
+</head>
+<body>
+  
+  <h1>Useless Box</h1>
+
+  <!-- Toggle buttons POST /toggle -->
+  <button
+    hx-post = "/toggle"
+    hx-swap = "none">
+  Toggle
+  </button>
+
+  <h2>Status</h2>
+
+  <!-- Live-updates from SSE -->
+  <div id="status"
+    hx-ext="sse"
+    sse-connect="/events"
+    sse-swap="state"
+    x-text="isOn ? 'ON' : 'OFF'">
+  </div>
