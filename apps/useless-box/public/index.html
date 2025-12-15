@@ -25,6 +25,7 @@
   <!-- Toggle buttons POST /toggle -->
   <button
     hx-post = "/toggle"
+    hx-trigger = "click"
     hx-swap = "none">
   Toggle
   </button>
@@ -34,7 +35,8 @@
   <!-- Live-updates from SSE -->
   <div id="status"
     hx-ext="sse"
-    sse-connect="/events"
+    hx-sse="true"
+    sse-connect="/state"
     sse-swap="state"
     x-text="isOn ? 'ON' : 'OFF'">
   </div>
