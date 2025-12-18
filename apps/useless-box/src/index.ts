@@ -142,7 +142,7 @@ const app = new Elysia()
     });
 
     poll(10_000);
-    console.log('Polling started every 60s')
+    console.log('Polling started every 10s')
   })
 
   .get('/state', async ({ store }) => {
