@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, sse } from 'elysia';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   object,
@@ -148,6 +148,18 @@ const app = new Elysia()
   .get('/state', async ({ store }) => {
     const state = await fetchState(store.ddb)();
     return validateState(state ?? { pk: PK_VALUE, on: false });
+  })
+  
+  .get('/events', async () => {
+    const stream = sse()
+    clients.add(stream)
+
+    stream.onClose(() => clients.delete(stream))
+
+    // possible to query DynamoDB here
+    stream.send(false)
+
+    return stream
   })
 
   .post('/toggle', async ({ store }) => {

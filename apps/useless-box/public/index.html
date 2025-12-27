@@ -7,9 +7,6 @@
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.10" defer></script> 
 
-  <!-- Alpine.js -->
-  <script src="https://unpkg.com/aplinejs" defer></script>
-
   <!-- HTMX SSE Extension -->
   <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
 
@@ -26,7 +23,10 @@
   <button
     hx-post = "/toggle"
     hx-trigger = "click"
-    hx-swap = "none">
+      hx-vals = 'js: "on" : !this.dataset.on}'
+      hx-headers =  '{"Content-Type":"application/json"}'
+      hx-swap = "none"
+      data-on = "false">
   Toggle
   </button>
 
@@ -40,3 +40,26 @@
     sse-swap="state"
     x-text="isOn ? 'ON' : 'OFF'">
   </div>
+
+  <script>
+    const evtSource = new EventSource('/events') 
+
+    evtSource.onmessage = e => {
+      const state = e.data === 'true'
+      const btn = document.getElementById('toggle')
+      btn.dataset.on = state
+      btn.textContent = state ? 'on' : 'off'
+    }
+    
+    // adds error handling
+    evtSource.onerror = () => {
+      console.error('SSE error. Attempting to reconnect...')
+    }
+
+    // keeps UI in sync
+    document.body.addEventListener('htmx:afterRequest', e => {
+      const btn = e.target
+      const newState = btn.dataset.on === 'true'
+      btn.textContent = newState ? 'on' : 'off'
+    })
+  </script>
