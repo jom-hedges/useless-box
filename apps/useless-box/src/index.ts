@@ -147,6 +147,10 @@ const app = new Elysia()
 
   .get('/state', async ({ store }) => {
     const state = await fetchState(store.ddb)();
+
+    await logState(on)
+    broadcast(on)
+
     return validateState(state ?? { pk: PK_VALUE, on: false });
   })
   
