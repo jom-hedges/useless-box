@@ -23,7 +23,7 @@ const REGION = 'ap-northeast-1';
 // schema
 const StateSchema = object({
   pk: string(),
-  on:optional(boolean()),
+  on: optional(boolean()),
 });
 
 const validateState = (item: any) =>
