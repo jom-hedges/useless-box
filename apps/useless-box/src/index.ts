@@ -1,4 +1,5 @@
 import { Elysia, sse } from 'elysia';
+import { cors } from 'elysia/plugins';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   object,
@@ -120,6 +121,7 @@ const makeStateStream = (fetch) => {
 
 // Elysia boundary (i/o only)
 const app = new Elysia()
+  .use(cors())
   .state('ddb', makeClient())
   
   .onStart(async ({ store }) => {
@@ -145,27 +147,17 @@ const app = new Elysia()
     console.log('Polling started every 10s')
   })
 
-  .get('/state', async ({ store }) => {
+  .get('/events', async ({ store }) => {
     const state = await fetchState(store.ddb)();
+    const stream = sse();
+    clients.add(stream);
 
-    await logState(on)
-    broadcast(on)
+    stream.onClose(() => clients.delete(stream));
 
-    return validateState(state ?? { pk: PK_VALUE, on: false });
+    stream.send(app.store.on);
+    return validateState(state ?? {pk: PK_VALUE, on:false });
   })
   
-  .get('/events', async () => {
-    const stream = sse()
-    clients.add(stream)
-
-    stream.onClose(() => clients.delete(stream))
-
-    // possible to query DynamoDB here
-    stream.send(false)
-
-    return stream
-  })
-
   .post('/toggle', async ({ store }) => {
     const ddb = store.ddb;
     const fetch = fetchState(ddb);

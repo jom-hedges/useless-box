@@ -20,13 +20,13 @@
   <h1>Useless Box</h1>
 
   <!-- Toggle buttons POST /toggle -->
-  <button
+  <button id="toggle"
     hx-post = "/toggle"
     hx-trigger = "click"
-      hx-vals = 'js: "on" : !this.dataset.on}'
-      hx-headers =  '{"Content-Type":"application/json"}'
-      hx-swap = "none"
-      data-on = "false">
+    hx-vals = 'js: {"on" : !this.dataset.on}'
+    hx-headers =  '{"Content-Type":"application/json"}'
+    hx-swap = "none"
+    data-on = "false">
   Toggle
   </button>
 
@@ -36,8 +36,8 @@
   <div id="status"
     hx-ext="sse"
     hx-sse="true"
-    sse-connect="/state"
-    sse-swap="state"
+    sse-connect="/events"
+    sse-swap="innerHTML"
     x-text="isOn ? 'ON' : 'OFF'">
   </div>
 
