@@ -23,10 +23,8 @@
   <button id="toggle"
     hx-post = "/toggle"
     hx-trigger = "click"
-    hx-vals = 'js: {"on" : !this.dataset.on}'
     hx-headers =  '{"Content-Type":"application/json"}'
-    hx-swap = "none"
-    data-on = "false">
+    hx-swap = "none">
   Toggle
   </button>
 
@@ -40,26 +38,5 @@
     sse-swap="innerHTML"
     x-text="isOn ? 'ON' : 'OFF'">
   </div>
-
-  <script>
-    const evtSource = new EventSource('/events') 
-
-    evtSource.onmessage = e => {
-      const state = e.data === 'true'
-      const btn = document.getElementById('toggle')
-      btn.dataset.on = state
-      btn.textContent = state ? 'on' : 'off'
-    }
-    
-    // adds error handling
-    evtSource.onerror = () => {
-      console.error('SSE error. Attempting to reconnect...')
-    }
-
-    // keeps UI in sync
-    document.body.addEventListener('htmx:afterRequest', e => {
-      const btn = e.target
-      const newState = btn.dataset.on === 'true'
-      btn.textContent = newState ? 'on' : 'off'
-    })
-  </script>
+</body>
+</html>

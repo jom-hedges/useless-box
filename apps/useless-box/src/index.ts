@@ -1,5 +1,6 @@
 import { Elysia, sse } from 'elysia';
-import { cors } from 'elysia/plugins';
+import { cors } from '@elysiajs/cors';
+import { staticPlugin } from '@elysiajs/static';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   object,
@@ -121,7 +122,15 @@ const makeStateStream = (fetch) => {
 
 // Elysia boundary (i/o only)
 const app = new Elysia()
-  .use(cors())
+  .use(cors({
+    origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true
+  }))
+  .use(staticPlugin({
+    assets: 'public',
+    prefix: '/static',
+  }))
   .state('ddb', makeClient())
   
   .onStart(async ({ store }) => {
@@ -155,7 +164,7 @@ const app = new Elysia()
     stream.onClose(() => clients.delete(stream));
 
     stream.send(app.store.on);
-    return validateState(state ?? {pk: PK_VALUE, on:false });
+    return stream;
   })
   
   .post('/toggle', async ({ store }) => {
@@ -170,6 +179,8 @@ const app = new Elysia()
     await writeState(ddb)({ pk: PK_VALUE, on: newState.on });
 
     return newState;
+    
+    
   });
   
 
