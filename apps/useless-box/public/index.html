@@ -1,43 +1,98 @@
 <!DOCTYPE html>
-<html lang="en" x-data="{ isOn: false, logs: [] }">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Useless Box</title>
 
   <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@1.9.10" defer></script> 
+  <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+  <script src="https://unpkg.com/htmx.org/dist/ext/sse.js" defer></script>
 
-  <!-- HTMX SSE Extension -->
-  <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
-
-  <style>
-    body { font-family: sans-serif; padding: 18px;}
-    button { padding: 10px; font-size: 18px;}
-  </style>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  
-  <h1>Useless Box</h1>
+  <header class="site-header">
+    <div class="container">
+      <h1 class="title">Useless Box</h1>
+      <p class="subtitle">Press the button to turn the lights off.</p>
+    </div>
+  </header>
 
-  <!-- Toggle buttons POST /toggle -->
-  <button id="toggle"
-    hx-post = "/toggle"
-    hx-trigger = "click"
-    hx-headers =  '{"Content-Type":"application/json"}'
-    hx-swap = "none">
-  Toggle
-  </button>
+  <main class="container main-card">
+    <section class="card">
+      <div class="card-body">
+        <div class="controls">
+          <!-- Toggle switch POST /toggle -->
+          <button id="toggle"
+            class="switch"
+            hx-post="/toggle"
+            hx-trigger="click"
+            hx-headers='{"Content-Type":"application/json"}'
+            hx-swap="none"
+            aria-label="Toggle the useless box"
+            role="switch"
+            aria-checked="false">
+            <span class="switch-track">
+              <span class="switch-thumb"></span>
+            </span>
+            <span class="switch-label">OFF</span>
+          </button>
+        </div>
 
-  <h2>Status</h2>
+        <div class="status-row">
+          <div class="status-label">Status</div>
+          <!-- Live-updates from SSE -->
+          <div id="status"
+            class="status-pill"
+            hx-ext="sse"
+            hx-sse="true"
+            sse-connect="/events"
+            sse-swap="innerHTML">
+            --
+          </div>
+        </div>
 
-  <!-- Live-updates from SSE -->
-  <div id="status"
-    hx-ext="sse"
-    hx-sse="true"
-    sse-connect="/events"
-    sse-swap="innerHTML"
-    x-text="isOn ? 'ON' : 'OFF'">
-  </div>
+        <div class="logs">
+          <h3>Activity</h3>
+          <div id="log-list" class="log-list" aria-live="polite">
+            <!-- server-sent events or client-side logs can fill this -->
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">Made as a learning project for full-stack environment in a cloud environment.</div>
+  </footer>
+
+  <script>
+    // Toggle switch and status pill sync
+    const toggleBtn = document.getElementById('toggle');
+    const statusEl = document.getElementById('status');
+    
+    const updateUI = () => {
+      const text = (statusEl.innerText || '').trim().toUpperCase();
+      const isOn = text.includes('ON');
+      toggleBtn.setAttribute('aria-checked', isOn ? 'true' : 'false');
+      const label = toggleBtn.querySelector('.switch-label');
+      if (label) label.textContent = isOn ? 'ON' : 'OFF';
+      if (statusEl) {
+        statusEl.classList.remove('on', 'off');
+        if (isOn) statusEl.classList.add('on');
+        else statusEl.classList.add('off');
+      }
+    };
+
+    // Initial update
+    updateUI();
+
+    // Watch status element for changes from SSE
+    if (statusEl) {
+      const mo = new MutationObserver(updateUI);
+      mo.observe(statusEl, { childList: true, characterData: true, subtree: true });
+    }
+  </script>
 </body>
 </html>

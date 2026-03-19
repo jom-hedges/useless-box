@@ -129,7 +129,7 @@ const app = new Elysia()
   }))
   .use(staticPlugin({
     assets: 'public',
-    prefix: '/static',
+    prefix: '/',
   }))
   .state('ddb', makeClient())
   
