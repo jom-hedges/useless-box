@@ -17,6 +17,8 @@ import {
     DynamoDBDocumentClient, 
 } from '@aws-sdk/lib-dynamodb';
 
+import { getSecrets } from './config/secrets.ts';
+
 // config
 const TABLE_NAME = 'useless-box';
 const PK_VALUE = 'useless-box-001';
@@ -132,9 +134,13 @@ const app = new Elysia()
     prefix: '/',
   }))
   .state('ddb', makeClient())
-  
+  .state('secrets', null)  
+
   .onStart(async ({ store }) => {
     const ddb = store.ddb;
+    
+    store.secrets = await getSecrets();
+    console.log('Secrets loaded');
 
     const fetch = fetchState(ddb);
     const write = writeState(ddb);
