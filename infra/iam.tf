@@ -1,5 +1,5 @@
 data "aws_iam_policy_document" "useless-box" {
-  # ----------------------------------------------
+# ----------------------------------------------
   # DynamoDB - read on init, write on state change
   #-----------------------------------------------
   statement {

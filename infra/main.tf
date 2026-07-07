@@ -42,7 +42,7 @@ resource "aws_subnet" "rabbit-vpc-private" {
     "b" = { az = local.azs[1], cidr = "10.0.11.0/24" }
   }
 
-  vpc_id            = aws_vpc.main.id
+ bvpc_id            = aws_vpc.rabbit-vpc-private.id
   cidr_block        = each.value.cidr
   availability_zone = each.value.az
   
@@ -53,11 +53,11 @@ resource "aws_subnet" "rabbit-vpc-private" {
 }
 
 resource "aws_route_table" "public" {
-   vpc_id = "aws_vpc.main.id"
+   vpc_id = aws_vpc.rabbit-vpc-public.id
   
    route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = "aws_internet_gateway.main.id"
+    gateway_id = "aws_internet_gateway.rabbit-vpc-public.id"
   }    
 
   tags = {
@@ -71,13 +71,13 @@ resource "aws_route_table_association" "public" {
     route_table_id  = aws_route_table.public.id
 }
 
-resource "aws_route" "private" {
+resource "aws_route_table" "private" {
   for_each  = aws_subnet.private
-  vpc_id    = aws_vpc.main.id
+  vpc_id    = aws_vpc.rabbit-vpc-public.id
 
   route {
     cidr_block      = "0.0.0.0/0"
-    nat_gateway_id  = aws_nat_gateway.main[each.key].id
+    nat_gateway_id  = aws_nat_gateway.rabbit-vpc-public[each.key].id
   }
 
   tags = {
@@ -85,15 +85,24 @@ resource "aws_route" "private" {
   }
 }
 
+resource "aws_eip" "nat" {
+  domain = "vpc"
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id  
+  subnet_id     = aws_subnet.public["a"].id 
+}
+
 resource "aws_route_table_association" "private" {
-  field           = aws_subnet.private
+  for_each        = aws_subnet.private
   subnet_id       = each.value.id 
   route_table_id  = aws_route_table.private[each.key].id
 }
 
 resource "aws_security_group" "rabbit-security-group" {
-    name = "rabbit-ssh-security"
-    vpc_id = aws_vpc.rabbit-vpc-public.id
+    name    = rabbit-ssh-security
+    vpc_id  = aws_vpc.rabbit-vpc-public.id
 
     ingress {
         from_port   = 22
