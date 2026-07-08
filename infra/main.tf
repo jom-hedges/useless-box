@@ -1,48 +1,57 @@
 provider "aws" {
-    region = "ap-northeast-1"
+  region = "ap-northeast-1"
+
+  
+  default_tags = {
+    tags = {
+      Project     = "useless-box"
+      Environment = "dev"
+      ManagedBy   = "opentofu"
+    }
+  }
 }
 
-resource "aws_vpc" "rabbit-vpc-public" {
-    cidr_block              = "10.0.0.0/16"
-    enable_dns_support      = true
-    enable_dns_hostnames    = true
+resource "aws_vpc" "rabbit-vpc" {
+  cidr_block              = "10.0.0.0/16"
+  enable_dns_support      = true
+  enable_dns_hostnames    = true
     
-    tags = {
-        Name = "rabbit-main-public"
-    }
+  tags = {
+    Name = "rabbit-main"
+  }
 }
 
 resource "aws_internet_gateway" "rabbit-gateway" {
-    vpc_id = aws_vpc.rabbit-vpc-public.id
+  vpc_id = aws_vpc.rabbit-vpc.id
 }
 
 locals {
   azs = ["ap-northeast-1a", "ap-northeast-1b"]
 }
 
-resource "aws_subnet" "rabbit-vpc-public" {
-    for_each = {
-      "a" = { az = local.azs[0], cidr = "10.0.1.0/24" },
-      "b" = { az = local.azs[1], cidr = "10.0.2.0/24" }
-    }
+resource "aws_subnet" "rabbit-public" {
+  for_each = {
+    "a" = { az = local.azs[0], cidr = "10.0.1.0/24" },
+    "b" = { az = local.azs[1], cidr = "10.0.2.0/24" }
+  }
     
-    vpc_id            = aws_vpc.rabbit-vpc-public.id
-    cidr_block        = each.value.cidr
-    availability_zone = each.value.az
+  vpc_id            = aws_vpc.rabbit-vpc.id
+  cidr_block        = each.value.cidr
+  availability_zone = each.value.az
 
-    tags = {
-        Name = "public-${each.key}"
-        Tier = "public"
-    }
+  tags = {
+    Name = "public-${each.key}"
+    Tier = "public"
+  }
 }
 
-resource "aws_subnet" "rabbit-vpc-private" {
+resource "aws_subnet" "rabbit-private" {
   for_each = {
     "a" = { az = local.azs[0], cidr = "10.0.10.0/24" },
     "b" = { az = local.azs[1], cidr = "10.0.11.0/24" }
   }
 
- bvpc_id            = aws_vpc.rabbit-vpc-private.id
+  vpc_id            = aws_vpc.rabbit-vpc.id
   cidr_block        = each.value.cidr
   availability_zone = each.value.az
   
@@ -53,11 +62,11 @@ resource "aws_subnet" "rabbit-vpc-private" {
 }
 
 resource "aws_route_table" "public" {
-   vpc_id = aws_vpc.rabbit-vpc-public.id
+  vpc_id = aws_vpc.rabbit-vpc.id
   
-   route {
+  route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = "aws_internet_gateway.rabbit-vpc-public.id"
+    gateway_id = "aws_internet_gateway.rabbit-vpc.id"
   }    
 
   tags = {
@@ -66,14 +75,14 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-    for_each        = aws_subnet.public
-    subnet_id       = each.value.id
-    route_table_id  = aws_route_table.public.id
+  for_each        = aws_subnet.rabbit-public
+  subnet_id       = each.value.id
+  route_table_id  = aws_route_table.public.id
 }
 
 resource "aws_route_table" "private" {
-  for_each  = aws_subnet.private
-  vpc_id    = aws_vpc.rabbit-vpc-public.id
+  for_each  = aws_subnet.rabbit-private
+  vpc_id    = aws_vpc.rabbit-vpc.id
 
   route {
     cidr_block      = "0.0.0.0/0"
@@ -91,56 +100,56 @@ resource "aws_eip" "nat" {
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id  
-  subnet_id     = aws_subnet.public["a"].id 
+  subnet_id     = aws_subnet.rabbit-public["a"].id 
 }
 
 resource "aws_route_table_association" "private" {
-  for_each        = aws_subnet.private
+  for_each        = aws_subnet.rabbit-private
   subnet_id       = each.value.id 
   route_table_id  = aws_route_table.private[each.key].id
 }
 
 resource "aws_security_group" "rabbit-security-group" {
-    name    = rabbit-ssh-security
-    vpc_id  = aws_vpc.rabbit-vpc-public.id
+  name    = "rabbit-ssh-security"
+  vpc_id  = aws_vpc.rabbit-vpc-public.id
 
-    ingress {
-        from_port   = 22
-        to_port     = 22
-        protocol    = "tcp"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-    egress {
-        from_port   = 0
-        to_port     = 0
-        protocol    = "-1"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 data "aws_ami" "ubuntu" { 
-    most_recent = true
+  most_recent = true
 
-    filter {
-        name = "name"
-        values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-    }
+  filter {
+    name = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
 
-    owners = ["099720109477"] # Canonical
+  owners = ["099720109477"] # Canonical
 }
 
 resource "aws_instance" "rabbit-env-server" {
-    ami                         = data.aws_ami.ubuntu.id
-    instance_type               = "t3.micro"
-    associate_public_ip_address = true
-    key_name                    = "greg-rabbit-key"
-    vpc_security_group_ids      = [aws_security_group.rabbit-security-group.id]
-    subnet_id                   = aws_subnet.rabbit-vpc-public.id
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = "t3.micro"
+  associate_public_ip_address = true
+  key_name                    = "greg-rabbit-key"
+  vpc_security_group_ids      = [aws_security_group.rabbit-security-group.id]
+  subnet_id                   = aws_subnet.rabbit-vpc-public.id
 
-    tags = {
+  tags = {
         Name = "rabbit-env-server"
-    }
+  }
 }
 
 resource "aws_dynamodb_table" "useless-box" {
